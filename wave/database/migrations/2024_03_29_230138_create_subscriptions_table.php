@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('subscriptions', function (Blueprint $table) {
             $table->id();
             $table->morphs('billable');
-            $table->unsignedBigInteger('plan_id');
+            $table->unsignedInteger('plan_id'); // Unsigned integer for the foreign key
             $table->string('vendor_slug');
             $table->string('vendor_product_id')->nullable();
             $table->string('vendor_transaction_id')->nullable();

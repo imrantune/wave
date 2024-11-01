@@ -202,6 +202,7 @@ return [
         App\Providers\FolioServiceProvider::class,
 
         \DevDojo\Themes\ThemesServiceProvider::class,
+        Wave\Plugins\ExcelImporter\ExcelImporterServiceProvider::class,
 
     ],
 
