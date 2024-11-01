@@ -15,10 +15,12 @@ class GenericImport implements ToCollection
     protected $report = [];
     protected $logger;
 
+    protected const PRE_FIX = 'excelImporter_';
+
     public function __construct($tableName, LoggerInterface $logger)
     {
-        $tableName = preg_replace('/[^a-zA-Z0-9_]/', '_', $tableName);
-        $this->tableName = $tableName;
+        $tableName =  $this->stringFixer($tableName);
+        $this->tableName =  self::PRE_FIX . $tableName;
         $this->logger = $logger;
     }
 
@@ -44,12 +46,19 @@ class GenericImport implements ToCollection
                 throw new \Exception("The header row is empty or invalid.");
             }
 
+            $this->report['main_table'] = '';
+            $this->report['columns_count'] = 0;
+            $this->report['subtables'] = [];
+            $this->report['records_inserted'] = 0;
+
+
+            
             // Check if the main table exists, if not create it
             if (!Schema::hasTable($this->tableName)) {
                 Schema::create($this->tableName, function (Blueprint $table) use ($header) {
                     $table->increments('id');
                     foreach ($header as $column) {
-                        $column = preg_replace('/[^a-zA-Z0-9_]/', '_', $column);
+                        $column =  $this->stringFixer($column);
                         $table->string($column)->nullable();
                     }
                     $table->timestamps();
@@ -57,7 +66,7 @@ class GenericImport implements ToCollection
                 // Initialize the report structure
                 $this->report['main_table'] = $this->tableName;
                 $this->report['columns_count'] = count($header);
-                $this->report['subtables'] = [];
+                
             } else {
                 $this->report['columns_count'] = count($header);
             }
@@ -71,7 +80,7 @@ class GenericImport implements ToCollection
 
                 $data = [];
                 foreach ($header as $index => $column) {
-                    $column = preg_replace('/[^a-zA-Z0-9_]/', '_', $column);
+                    $column =  $this->stringFixer($column);
                     $value = isset($row[$index]) ? $row[$index] : null;
 
                     // If header is missing, generate default column name
@@ -81,12 +90,18 @@ class GenericImport implements ToCollection
 
                     if (strpos($value, ',') !== false) {
                         $subValues = explode(',', $value);
-                        $subTableName = $this->tableName . '_' . preg_replace('/[^a-zA-Z0-9_]/', '_', $column);
+                        $subTableName = $this->tableName . '_' .  $this->stringFixer($column);
                         if (!Schema::hasTable($subTableName)) {
                             Schema::create($subTableName, function (Blueprint $table) {
                                 $table->increments('id');
                                 $table->string('value');
                             });
+                            $this->report['subtables'][$subTableName] = [
+                                'columns' => ['value'],
+                                'records_inserted' => 0,
+                            ];
+                        } else {
+
                             $this->report['subtables'][$subTableName] = [
                                 'columns' => ['value'],
                                 'records_inserted' => 0,
@@ -125,13 +140,13 @@ class GenericImport implements ToCollection
             $this->logReport();
         } catch (PDOException $e){
 
-            dd($e->getMessage());
+            dd($e->getFile( ) ." : ".$e->getLine( ) ." : ". $e->getMessage());
 
         } catch (\Exception $e) {
             // Rollback the transaction if something goes wrong
             DB::rollBack();
             // Log the error with Monolog
-            dd($e->getMessage());
+            dd( $e->getFile( ) ." : ".$e->getLine( ) ." : ". $e->getMessage() );
             app(LoggerInterface::class)->error('Import Error: ' . $e->getMessage());
             throw $e; // Re-throw the exception for further handling
         } finally {
@@ -140,6 +155,10 @@ class GenericImport implements ToCollection
         }
     }
 
+    protected function stringFixer($string)
+    {
+        return strtolower( preg_replace('/[^a-zA-Z0-9_]/', '_', trim($string) ) );
+    }
 
     protected function isNullableColumn($column)
     {

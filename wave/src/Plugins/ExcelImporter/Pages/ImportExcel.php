@@ -36,7 +36,7 @@ class ImportExcel extends Page
         } catch (\Exception $e) {
             // Log the error for debugging
             $logger->error('Import Error: ' . $e->getMessage());
-            dd('Import Error: ' .$e->getMessage());
+            dd( $e->getFile( ) ." : ".$e->getLine( ) ." : ".  'Import Error: ' .$e->getMessage());
             // Redirect with an error message
             return redirect()->route('filament.pages.ImportExcel')
                              ->withErrors(['file' => 'Failed to import file. Please check the log for more details.']);
